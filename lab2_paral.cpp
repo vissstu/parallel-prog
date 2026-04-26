@@ -1,4 +1,4 @@
-﻿#define _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,20 +54,29 @@ void write_matrix(const char* prefix, Matrix mat, int exp, int threads) {
 void parallel_multiply(Matrix A, Matrix B, Matrix C) {
     int n = A.size;
 
+    // обнуление матрицы C
 #pragma omp parallel for collapse(2)
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
-            double sum = 0.0;
-            for (int k = 0; k < n; ++k)
-                sum += A.data[i][k] * B.data[k][j];
+            C.data[i][j] = 0.0;
+        }
+    }
 
-            C.data[i][j] = sum;
+    // оптимизированный порядк циклов
+#pragma omp parallel for
+    for (int i = 0; i < n; ++i) {
+        for (int k = 0; k < n; ++k) {
+            double aik = A.data[i][k];
+            for (int j = 0; j < n; ++j) {
+                C.data[i][j] += aik * B.data[k][j];
+            }
         }
     }
 }
 
 
 int main() {
+
     srand((unsigned)time(NULL));
 
     int sizes[] = { 200, 400, 800, 1200, 1600, 2000 };
@@ -80,6 +89,17 @@ int main() {
     fprintf(report, "Threads,Size,Time\n");
 
     printf("=====================================\n");
+    // проверка работы OpenMP
+    int check_threads = 0;
+#pragma omp parallel
+    {
+#pragma omp single
+        check_threads = omp_get_num_threads();
+    }
+    printf("OpenMP active! Threads in parallel region: %d\n", check_threads);
+    if (check_threads == 1) {
+        printf("WARNING: OpenMP seems NOT working! Check compiler settings.\n");
+    }
     printf("Parallel Matrix Multiplication (OpenMP)\n");
     printf("=====================================\n");
 
